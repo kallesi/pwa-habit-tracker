@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Habit Tracker</title>
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 0;
+      margin: 0;
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .container {
+      max-width: 600px;
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    h1, #current-date {
+      text-align: center;
+      color: #ffffff;
+      margin: 10px 0;
+      font-size: 1.8rem;
+    }
+    .header {
+      background-color: #1e1e1e;
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      width: 100%;
+    }
+    .habit {
+      display: flex;
+      align-items: center;
+      margin: 10px;
+      padding: 10px;
+      background-color: #2c2c2c;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      transition: background-color 0.3s;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .habit:hover {
+      background-color: #3a3a3a;
+    }
+    .habit input {
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+    .date-navigation {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin: 10px;
+      padding: 10px;
+    }
+    button {
+      padding: 10px;
+      font-size: 1rem;
+      border: none;
+      background-color: #6200ea;
+      color: #ffffff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      flex: 1;
+      margin: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    button:hover {
+      background-color: #3700b3;
+    }
+    .today-label {
+      font-weight: bold;
+      color: #bb86fc;
+    }
+    #habits-container {
+      padding-top: 35px;
+      padding-bottom: 20px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      height: calc(100vh - 160px);
+    }
+    @media (max-width: 600px) {
+      h1, #current-date {
+        font-size: 1.5rem;
+      }
+      button {
+        font-size: 0.9rem;
+      }
+      .habit {
+        padding: 15px;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Habit Tracker</h1>
+      <div id="current-date"></div>
+      <div class="date-navigation">
+        <button id="prev-day">< Previous</button>
+        <button id="next-day">Next ></button>
+      </div>
+    </div>
+    <div id="habits-container">
+      <div id="habits"></div>
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      const serviceWorkerScript = `
+      self.addEventListener('install', function(event) {
+        event.waitUntil(
+          caches.open('habit-tracker').then(function(cache) {
+            return cache.addAll([
+              './',
+              './index.html'
+            ]);
+          })
+        );
+      });
+
+      self.addEventListener('fetch', function(event) {
+        event.respondWith(
+          caches.match(event.request).then(function(response) {
+            return response || fetch(event.request);
+          })
+        );
+      });
+      `;
+
+      const blob = new Blob([serviceWorkerScript], { type: 'application/javascript' });
+      const serviceWorkerURL = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(serviceWorkerURL).then(function(registration) {
+        console.log('Service Worker registered with scope:', registration.scope);
+      }).catch(function(error) {
+        console.log('Service Worker registration failed:', error);
+      });
+    }
+
+    let currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+
+    function formatDate(date) {
+      const timeZoneOffset = date.getTimezoneOffset() * 60000;
+      const localISOTime = new Date(date - timeZoneOffset).toISOString().slice(0, 10);
+      return localISOTime;
+    }
+
+    function loadHabits(date) {
+      google.script.run.withSuccessHandler(renderHabits).getHabitsWithStatus(formatDate(date));
+    }
+
+    function renderHabits(data) {
+      const container = document.getElementById('habits');
+      const dateElement = document.getElementById('current-date');
+      container.innerHTML = '';
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (formatDate(today) === data.date) {
+        dateElement.innerHTML = `<span>${data.date} - <span class="today-label">Today</span></span>`;
+      } else {
+        dateElement.textContent = data.date;
+      }
+
+      data.habits.forEach(item => {
+        const habitElement = document.createElement('div');
+        habitElement.className = 'habit';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.done;
+        checkbox.onclick = function(event) {
+          event.stopPropagation();
+          google.script.run.toggleHabitStatus(data.date, item.habit, this.checked);
+        };
+        
+        const label = document.createElement('label');
+        label.textContent = item.habit;
+
+        habitElement.appendChild(checkbox);
+        habitElement.appendChild(label);
+
+        habitElement.onclick = function() {
+          checkbox.checked = !checkbox.checked;
+          google.script.run.toggleHabitStatus(data.date, item.habit, checkbox.checked);
+        };
+
+        container.appendChild(habitElement);
+      });
+    }
+
+    document.getElementById('prev-day').addEventListener('click', function() {
+      currentDate.setDate(currentDate.getDate() - 1);
+      loadHabits(currentDate);
+    });
+
+    document.getElementById('next-day').addEventListener('click', function() {
+      currentDate.setDate(currentDate.getDate() + 1);
+      loadHabits(currentDate);
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadHabits(currentDate);
+    });
+  </script>
+
+  <!-- Manifest as a script tag -->
+  <script type="application/json" id="manifest">
+    {
+      "name": "Habit Tracker",
+      "short_name": "HabitTracker",
+      "start_url": ".",
+      "display": "standalone",
+      "background_color": "#121212",
+      "theme_color": "#6200ea",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "src": "icon-512.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    }
+  </script>
+
+  <script>
+    // Dynamically create link for manifest
+    const manifestContent = document.getElementById('manifest').textContent;
+    const manifestBlob = new Blob([manifestContent], { type: 'application/json' });
+    const manifestURL = URL.createObjectURL(manifestBlob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = manifestURL;
+    document.head.appendChild(link);
+  </script>
+</body>
+</html>
