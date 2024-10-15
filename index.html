@@ -271,14 +271,14 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-      const cachedData = localStorage.getItem('habitsData');
-      if (cachedData) {
-        allHabitsData = JSON.parse(cachedData);
-        loadHabits(currentDate);
-      } else {
-        initializeHabits();
+      initializeHabits();
+    });
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        initializeHabits(); // Refresh data when the app becomes visible
       }
     });
+
   </script>
 
   <script type="application/json" id="manifest">
