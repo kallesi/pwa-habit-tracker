@@ -126,37 +126,7 @@
   </div>
 
   <script>
-    if ('serviceWorker' in navigator) {
-      const serviceWorkerScript = `
-      self.addEventListener('install', function(event) {
-        event.waitUntil(
-          caches.open('habit-tracker').then(function(cache) {
-            return cache.addAll([
-              './',
-              './index.html'
-            ]);
-          })
-        );
-      });
-
-      self.addEventListener('fetch', function(event) {
-        event.respondWith(
-          caches.match(event.request).then(function(response) {
-            return response || fetch(event.request);
-          })
-        );
-      });
-      `;
-
-      const blob = new Blob([serviceWorkerScript], { type: 'application/javascript' });
-      const serviceWorkerURL = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(serviceWorkerURL).then(function(registration) {
-        console.log('Service Worker registered with scope:', registration.scope);
-      }).catch(function(error) {
-        console.log('Service Worker registration failed:', error);
-      });
-    }
-
+    let allHabitsData = null;
     let currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
 
@@ -166,63 +136,117 @@
       return localISOTime;
     }
 
+    function initializeHabits() {
+      google.script.run.withSuccessHandler(data => {
+        allHabitsData = data;
+        localStorage.setItem('habitsData', JSON.stringify(data));
+        loadHabits(currentDate);
+      }).getAllHabitsData();
+    }
+
     function loadHabits(date) {
-      google.script.run.withSuccessHandler(renderHabits).getHabitsWithStatus(formatDate(date));
+      const formattedDate = formatDate(date);
+      const habits = allHabitsData.habits;
+      const trackerData = allHabitsData.trackerData;
+
+      const habitStatus = habits.map(habit => {
+        const done = trackerData.some(row => row.date === formattedDate && row.habit === habit);
+        const streak = calculateStreak(trackerData, habit);
+        return { habit: habit, done: done, streak: streak };
+      });
+
+      renderHabits({ habits: habitStatus, date: formattedDate });
     }
 
- function renderHabits(data) {
-    const container = document.getElementById('habits');
-    const dateElement = document.getElementById('current-date');
-    container.innerHTML = '';
+    function calculateStreak(trackerData, habit) {
+      let streak = 0;
+      let currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      trackerData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    if (formatDate(today) === data.date) {
-      dateElement.innerHTML = `<span>${data.date} - <span class="today-label">Today</span></span>`;
-    } else {
-      dateElement.textContent = data.date;
-    }
-
-    data.habits.forEach(item => {
-      const habitElement = document.createElement('div');
-      habitElement.className = 'habit';
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = item.done;
-      checkbox.onclick = function(event) {
-        event.stopPropagation();
-        google.script.run.toggleHabitStatus(data.date, item.habit, this.checked);
-      };
-      
-      const label = document.createElement('label');
-      label.textContent = item.habit;
-
-      const streakElement = document.createElement('span');
-
-      const streakText = (streakDays) => {
-        if (streakDays > 1) return `🔥 ${streakDays}`
-        else if (streakDays > 0) return `${streakDays}`
-        else return ``;
+      for (let i = 0; i < trackerData.length; i++) {
+        const trackDate = trackerData[i].date;
+        const trackHabit = trackerData[i].habit;
+        if (trackHabit === habit) {
+          if (trackDate === formatDate(currentDate)) {
+            streak++;
+            currentDate.setDate(currentDate.getDate() - 1);
+          } else if (new Date(trackDate) < currentDate) {
+            break;
+          }
+        }
       }
 
-      streakElement.textContent = streakText(item.streak);
-      streakElement.style.marginLeft = 'auto';
-      streakElement.style.color = '#bb86fc';
+      return streak;
+    }
 
-      habitElement.appendChild(checkbox);
-      habitElement.appendChild(label);
-      habitElement.appendChild(streakElement);
+    function renderHabits(data) {
+      const container = document.getElementById('habits');
+      const dateElement = document.getElementById('current-date');
+      container.innerHTML = '';
 
-      habitElement.onclick = function() {
-        checkbox.checked = !checkbox.checked;
-        google.script.run.toggleHabitStatus(data.date, item.habit, checkbox.checked);
-      };
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      container.appendChild(habitElement);
-    });
-  }
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      if (formatDate(today) === data.date) {
+        dateElement.innerHTML = `<span>${data.date} - <span class="today-label">Today</span></span>`;
+      } else if (formatDate(yesterday) === data.date) {
+        dateElement.innerHTML = `<span>${data.date} - <span class="today-label">Yesterday</span></span>`;
+      } else if (formatDate(tomorrow) === data.date) {
+        dateElement.innerHTML = `<span>${data.date} - <span class="today-label">Tomorrow</span></span>`;
+      } else {
+        dateElement.textContent = data.date;
+      }
+
+      data.habits.forEach(item => {
+        const habitElement = document.createElement('div');
+        habitElement.className = 'habit';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.done;
+        checkbox.onclick = function(event) {
+          event.stopPropagation();
+          google.script.run.withSuccessHandler(() => {
+            initializeHabits(); // Refresh all data
+          }).toggleHabitStatus(data.date, item.habit, this.checked);
+        };
+
+        const label = document.createElement('label');
+        label.textContent = item.habit;
+
+        const streakElement = document.createElement('span');
+        const streakText = (streakDays) => {
+          if (streakDays > 1) return `🔥 ${streakDays}`;
+          else if (streakDays > 0) return `${streakDays}`;
+          else return ``;
+        };
+
+        streakElement.textContent = streakText(item.streak);
+        streakElement.style.marginLeft = 'auto';
+        streakElement.style.color = '#bb86fc';
+
+        habitElement.appendChild(checkbox);
+        habitElement.appendChild(label);
+        habitElement.appendChild(streakElement);
+
+        habitElement.onclick = function() {
+          checkbox.checked = !checkbox.checked;
+          google.script.run.withSuccessHandler(() => {
+            initializeHabits(); // Refresh all data
+          }).toggleHabitStatus(data.date, item.habit, checkbox.checked);
+        };
+
+        container.appendChild(habitElement);
+      });
+    }
 
     document.getElementById('prev-day').addEventListener('click', function() {
       currentDate.setDate(currentDate.getDate() - 1);
@@ -235,11 +259,16 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-      loadHabits(currentDate);
+      const cachedData = localStorage.getItem('habitsData');
+      if (cachedData) {
+        allHabitsData = JSON.parse(cachedData);
+        loadHabits(currentDate);
+      } else {
+        initializeHabits();
+      }
     });
   </script>
 
-  <!-- Manifest as a script tag -->
   <script type="application/json" id="manifest">
     {
       "name": "Habit Tracker",
@@ -265,7 +294,6 @@
   </script>
 
   <script>
-    // Dynamically create link for manifest
     const manifestContent = document.getElementById('manifest').textContent;
     const manifestBlob = new Blob([manifestContent], { type: 'application/json' });
     const manifestURL = URL.createObjectURL(manifestBlob);
