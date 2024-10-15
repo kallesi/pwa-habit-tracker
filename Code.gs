@@ -5,7 +5,8 @@ function doGet() {
       'viewport',
       'width=device-width, initial-scale=1.0, user-scalable=no'
     )
-    .addMetaTag('apple-mobile-web-app-capable', 'yes');
+    .addMetaTag('apple-mobile-web-app-capable', 'yes')
+    .addMetaTag('mobile-web-app-capable', 'yes');
 }
 
 function getHabitsWithStatus(date) {
