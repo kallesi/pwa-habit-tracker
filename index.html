@@ -170,46 +170,52 @@
       google.script.run.withSuccessHandler(renderHabits).getHabitsWithStatus(formatDate(date));
     }
 
-    function renderHabits(data) {
-      const container = document.getElementById('habits');
-      const dateElement = document.getElementById('current-date');
-      container.innerHTML = '';
+ function renderHabits(data) {
+    const container = document.getElementById('habits');
+    const dateElement = document.getElementById('current-date');
+    container.innerHTML = '';
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      if (formatDate(today) === data.date) {
-        dateElement.innerHTML = `<span>${data.date} - <span class="today-label">Today</span></span>`;
-      } else {
-        dateElement.textContent = data.date;
-      }
-
-      data.habits.forEach(item => {
-        const habitElement = document.createElement('div');
-        habitElement.className = 'habit';
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = item.done;
-        checkbox.onclick = function(event) {
-          event.stopPropagation();
-          google.script.run.toggleHabitStatus(data.date, item.habit, this.checked);
-        };
-        
-        const label = document.createElement('label');
-        label.textContent = item.habit;
-
-        habitElement.appendChild(checkbox);
-        habitElement.appendChild(label);
-
-        habitElement.onclick = function() {
-          checkbox.checked = !checkbox.checked;
-          google.script.run.toggleHabitStatus(data.date, item.habit, checkbox.checked);
-        };
-
-        container.appendChild(habitElement);
-      });
+    if (formatDate(today) === data.date) {
+      dateElement.innerHTML = `<span>${data.date} - <span class="today-label">Today</span></span>`;
+    } else {
+      dateElement.textContent = data.date;
     }
+
+    data.habits.forEach(item => {
+      const habitElement = document.createElement('div');
+      habitElement.className = 'habit';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = item.done;
+      checkbox.onclick = function(event) {
+        event.stopPropagation();
+        google.script.run.toggleHabitStatus(data.date, item.habit, this.checked);
+      };
+      
+      const label = document.createElement('label');
+      label.textContent = item.habit;
+
+      const streakElement = document.createElement('span');
+      streakElement.textContent = item.streak > 0 ? `🔥 ${item.streak}` : '';
+      streakElement.style.marginLeft = 'auto';
+      streakElement.style.color = '#bb86fc';
+
+      habitElement.appendChild(checkbox);
+      habitElement.appendChild(label);
+      habitElement.appendChild(streakElement);
+
+      habitElement.onclick = function() {
+        checkbox.checked = !checkbox.checked;
+        google.script.run.toggleHabitStatus(data.date, item.habit, checkbox.checked);
+      };
+
+      container.appendChild(habitElement);
+    });
+  }
 
     document.getElementById('prev-day').addEventListener('click', function() {
       currentDate.setDate(currentDate.getDate() - 1);
