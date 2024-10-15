@@ -64,7 +64,6 @@ function toggleHabitStatus(date, habit, status) {
     for (let i = data.length - 1; i >= 0; i--) {
       if (formatDate(data[i][0]) === date && data[i][1] === habit) {
         habitTrackerSheet.deleteRow(i + 1);
-        break;
       }
     }
   }
