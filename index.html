@@ -107,6 +107,13 @@
         padding: 15px;
         font-size: 1rem;
       }
+      .date-navigation button {
+        font-size: 0;
+      }
+      .date-navigation button::before {
+        font-size: 1.5rem;
+        content: attr(data-icon);
+      }
     }
   </style>
 </head>
@@ -116,8 +123,9 @@
       <h1>Habit Tracker</h1>
       <div id="current-date"></div>
       <div class="date-navigation">
-        <button id="prev-day">< Previous</button>
-        <button id="next-day">Next ></button>
+        <button id="prev-day" data-icon="←">← Previous</button>
+        <button id="reload" data-icon="↻">↻ Refresh</button>
+        <button id="next-day" data-icon="→">Next →</button>
       </div>
     </div>
     <div id="habits-container">
@@ -256,6 +264,10 @@
     document.getElementById('next-day').addEventListener('click', function() {
       currentDate.setDate(currentDate.getDate() + 1);
       loadHabits(currentDate);
+    });
+
+    document.getElementById('reload').addEventListener('click', function() {
+      initializeHabits();
     });
 
     document.addEventListener('DOMContentLoaded', function() {
