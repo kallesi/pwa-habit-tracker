@@ -200,7 +200,14 @@
       label.textContent = item.habit;
 
       const streakElement = document.createElement('span');
-      streakElement.textContent = item.streak > 0 ? `🔥 ${item.streak}` : '';
+
+      const streakText = (streakDays) => {
+        if (streakDays > 1) return `🔥 ${streakDays}`
+        else if (streakDays > 0) return `${streakDays}`
+        else return ``;
+      }
+
+      streakElement.textContent = streakText(item.streak);
       streakElement.style.marginLeft = 'auto';
       streakElement.style.color = '#bb86fc';
 
