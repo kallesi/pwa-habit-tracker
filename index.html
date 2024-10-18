@@ -168,20 +168,35 @@
 
     function calculateStreak(trackerData, habit) {
       let streak = 0;
-      let currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
+      let dateCursor = new Date();
+      dateCursor.setHours(0, 0, 0, 0); // Ensure time is set to midnight for accurate comparison
 
-      trackerData.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const formattedToday = formatDate(dateCursor);
+      const doneToday = trackerData.some(row => row.date === formattedToday && row.habit === habit);
 
-      for (let i = 0; i < trackerData.length; i++) {
-        const trackDate = trackerData[i].date;
-        const trackHabit = trackerData[i].habit;
-        if (trackHabit === habit) {
-          if (trackDate === formatDate(currentDate)) {
+      if (doneToday) {
+        // Start counting from today
+        while (true) {
+          const formattedDate = formatDate(dateCursor);
+          const isDone = trackerData.some(row => row.date === formattedDate && row.habit === habit);
+          if (isDone) {
             streak++;
-            currentDate.setDate(currentDate.getDate() - 1);
-          } else if (new Date(trackDate) < currentDate) {
-            break;
+            dateCursor.setDate(dateCursor.getDate() - 1); // Move to the previous day
+          } else {
+            break; // Streak broken
+          }
+        }
+      } else {
+        // Start counting from yesterday
+        dateCursor.setDate(dateCursor.getDate() - 1); // Move to yesterday
+        while (true) {
+          const formattedDate = formatDate(dateCursor);
+          const isDone = trackerData.some(row => row.date === formattedDate && row.habit === habit);
+          if (isDone) {
+            streak++;
+            dateCursor.setDate(dateCursor.getDate() - 1); // Move to the previous day
+          } else {
+            break; // Streak broken
           }
         }
       }
